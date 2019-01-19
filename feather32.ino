@@ -1,6 +1,7 @@
 /*******************************************************************************
    Copyright (c) 2015 Thomas Telkamp and Matthijs Kooijman
    Copyright (c) 2018 Terry Moore, MCCI
+   Copyright (c) 2019 Trevor Hobson
 
    Permission is hereby granted, free of charge, to anyone
    obtaining a copy of this document and accompanying files,
@@ -35,19 +36,14 @@
 #include <hal/hal.h>
 #include <SPI.h>
 
-//
-// For normal use, we require that you edit the sketch to replace FILLMEIN
-// with values assigned by the TTN console. However, for regression tests,
-// we want to be able to compile these scripts. The regression tests define
-// COMPILE_REGRESSION_TEST, and in that case we define FILLMEIN to a non-
-// working but innocuous value.
-//
-#ifdef COMPILE_REGRESSION_TEST
-# define FILLMEIN 0
-#else
-# warning "You must replace the values marked FILLMEIN with real values from the TTN control panel!"
-# define FILLMEIN (#dont edit this, edit the lines that use FILLMEIN)
-#endif
+
+// Development mode:
+// - add a startup delay to assist reprogramming
+// - wait for the host to open the serial monitor during setup()
+#define IS_DEVELOPMENT 1
+
+// Read and report the voltage of an attached battery.
+#define HAS_BATTERY 1
 
 // This EUI must be in little-endian format, so least-significant-byte
 // first. When copying an EUI from ttnctl output, this means to reverse
@@ -72,7 +68,13 @@ void os_getDevKey (u1_t* buf) {
   memcpy_P(buf, APPKEY, 16);
 }
 
-static uint8_t mydata[] = "Hello, world!";
+struct MyData {
+  // Only 1-byte members so avoids alignment/padding and endian issues
+  // Initialise all members inline to avoid sending garbage.
+  uint8_t battery = -1; // [volts x 10] no battery is indicated by -1
+  // add others here
+};
+static MyData mydata;
 static osjob_t sendjob;
 
 // Schedule TX every this many seconds (might become longer due to duty
@@ -86,6 +88,36 @@ const lmic_pinmap lmic_pins = {
   .rst = 4,
   .dio = {7, 6, LMIC_UNUSED_PIN},
 };
+
+/* Pin Mappings
+  D23/A5
+  D22/A4
+  D21/A3
+  D20/A2
+  D19/A1
+  D18/A0
+  D16     (LORA)
+  D15     (LORA)
+  D14     (LORA)
+  D13     (LED)
+  D12/A11
+  D11
+  D10/A10
+  D9 /A9  (BATTERY)
+  D8      NSS/CS (LORA)
+  D7      DIO0/IRQ (LORA)
+  D6 /A7  DIO1 (LORA)
+  D5
+  D4      RST (LORA)
+  D3/SCL
+  D2/SDA
+  D1/TX
+  D0/RX
+*/
+
+#define VBATPIN A9
+
+volatile int latestBat = -1; // [mV] or -1 if no battery or unknown
 
 void onEvent (ev_t ev) {
   Serial.print(os_getTime());
@@ -200,15 +232,45 @@ void do_send(osjob_t* j) {
     Serial.println(F("OP_TXRXPEND, not sending"));
   } else {
     // Prepare upstream data transmission at the next possible time.
-    LMIC_setTxData2(1, mydata, sizeof(mydata) - 1, 0);
+    LMIC_setTxData2(1, reinterpret_cast<uint8_t*>(&mydata), sizeof(mydata), 0);
     Serial.println(F("Packet queued"));
   }
   // Next TX is scheduled after TX_COMPLETE event.
 }
 
+#if HAS_BATTERY
+void read_battery() {
+  // Measure battery voltage (millivolts)
+  // - multiply by 2 to account for voltage divider
+  // - multiply by reference voltage (3300mV)
+  // - divide by 1024 (integer!) to account for 10-bit AtoD resolution
+  int previousBat = latestBat;
+  latestBat = (analogRead(VBATPIN) * 2 * 3300) / 1024;
+  mydata.battery = static_cast<uint8_t>(latestBat / 100);
+  if (abs(latestBat - previousBat) > 50) {
+    Serial.print("VBat: "); Serial.println(latestBat);
+  }
+}
+#endif
+
 void setup() {
+#if IS_DEVELOPMENT
+  // delay(3000) makes recovery from botched images much easier, as it
+  // gives the host time to break in to start a download. Without it,
+  // you get to the crash before the host can break in.
+  delay(3000);
+
+  // even after the delay, we wait for the host to open the port.
+  // Note: operator bool(Serial) just checks dtr() and adds a 10ms delay.
+  while (! Serial.dtr()) {} // wait for the host to connect
+#endif
+
   Serial.begin(9600);
   Serial.println(F("Starting"));
+
+#if HAS_BATTERY
+  read_battery();
+#endif
 
 #ifdef VCC_ENABLE
   // For Pinoccio Scout boards
@@ -227,5 +289,9 @@ void setup() {
 }
 
 void loop() {
+#if HAS_BATTERY
+  read_battery();
+#endif
+
   os_runloop_once();
 }
