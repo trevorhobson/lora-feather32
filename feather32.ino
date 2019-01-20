@@ -71,7 +71,7 @@ void os_getDevKey (u1_t* buf) {
 struct MyData {
   // Only 1-byte members so avoids alignment/padding and endian issues
   // Initialise all members inline to avoid sending garbage.
-  uint8_t battery = -1; // [volts x 10] no battery is indicated by -1
+  uint8_t battery = -1;  // [volts x 10] no battery is indicated by -1
   // add others here
 };
 static MyData mydata;
@@ -103,7 +103,7 @@ const lmic_pinmap lmic_pins = {
   D12/A11
   D11
   D10/A10
-  D9 /A9  (BATTERY)
+  D9 /A9  (BATTERY) (A9)
   D8      NSS/CS (LORA)
   D7      DIO0/IRQ (LORA)
   D6 /A7  DIO1 (LORA)
@@ -115,7 +115,7 @@ const lmic_pinmap lmic_pins = {
   D0/RX
 */
 
-#define VBATPIN A9
+#define PIN_VBAT A9
 
 volatile int latestBat = -1; // [mV] or -1 if no battery or unknown
 
@@ -245,7 +245,7 @@ void read_battery() {
   // - multiply by reference voltage (3300mV)
   // - divide by 1024 (integer!) to account for 10-bit AtoD resolution
   int previousBat = latestBat;
-  latestBat = (analogRead(VBATPIN) * 2 * 3300) / 1024;
+  latestBat = (analogRead(PIN_VBAT) * 2 * 3300) / 1024;
   mydata.battery = static_cast<uint8_t>(latestBat / 100);
   if (abs(latestBat - previousBat) > 50) {
     Serial.print("VBat: "); Serial.println(latestBat);
