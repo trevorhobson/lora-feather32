@@ -242,11 +242,8 @@ void do_send(osjob_t* j) {
 #if HAS_BATTERY
 void read_battery() {
   // Measure battery voltage (millivolts)
-  // - multiply by 2 to account for voltage divider
-  // - multiply by reference voltage (3300mV)
-  // - divide by 1024 (integer!) to account for 10-bit AtoD resolution
   int previousBat = latestBat;
-  latestBat = (analogRead(PIN_VBAT) * 2 * 3300) / 1024;
+  latestBat = static_cast<int>(map(analogRead(PIN_VBAT), 0, 1023, 0, 3300));
   mydata.battery = static_cast<uint8_t>(latestBat / 100);
   if (abs(latestBat - previousBat) > 50) {
     Serial.print("VBat: "); Serial.println(latestBat);
