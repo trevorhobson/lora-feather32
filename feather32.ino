@@ -71,7 +71,7 @@ void os_getDevKey (u1_t* buf) {
 struct MyData {
   // Only 1-byte members so avoids alignment/padding and endian issues
   // Initialise all members inline to avoid sending garbage.
-  uint8_t format =  1;   // Format of the data packet, used by receiver
+  uint8_t kind =  1;     // Kind of the data packet, used by receiver
   uint8_t battery = -1;  // [volts x 10] no battery is indicated by -1
   // add others here
 };
