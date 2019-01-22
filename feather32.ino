@@ -9,11 +9,11 @@
    including, but not limited to, copying, modification and redistribution.
    NO WARRANTY OF ANY KIND IS PROVIDED.
 
-   This example sends a valid LoRaWAN packet with payload "Hello,
-   world!", using frequency and encryption settings matching those of
+   This example sends a valid LoRaWAN packet with payload of battery voltage,
+   using frequency and encryption settings matching those of
    the The Things Network.
 
-   This uses OTAA (Over-the-air activation), where where a DevEUI and
+   This uses OTAA (Over-the-air activation), where a DevEUI and
    application key is configured, which are used in an over-the-air
    activation procedure where a DevAddr and session keys are
    assigned/generated for use with all further communication.
@@ -183,8 +183,9 @@ void onEvent (ev_t ev) {
       break;
     case EV_TXCOMPLETE:
       Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
-      if (LMIC.txrxFlags & TXRX_ACK)
+      if (LMIC.txrxFlags & TXRX_ACK) {
         Serial.println(F("Received ack"));
+      }
       if (LMIC.dataLen) {
         Serial.print(F("Received "));
         Serial.print(LMIC.dataLen);
