@@ -71,8 +71,8 @@ void os_getDevKey (u1_t* buf) {
 struct MyData {
   // Only 1-byte members so avoids alignment/padding and endian issues
   // Initialise all members inline to avoid sending garbage.
-  uint8_t kind =  1;     // Kind of the data packet, used by receiver
-  uint8_t battery = -1;  // [volts x 10] no battery is indicated by -1
+  uint8_t kind =  1;     // kind of the data packet, used by receiver
+  uint8_t battery = -1;  // [volts x 10] no battery is indicated by -1 (255)
   // add others here
 };
 static MyData mydata;
@@ -244,8 +244,8 @@ void do_send(osjob_t* j) {
 void read_battery() {
   // Measure battery voltage (millivolts)
   int previousBat = latestBat;
-  latestBat = static_cast<int>(map(analogRead(PIN_VBAT), 0, 1023, 0, 3300));
-  mydata.battery = static_cast<uint8_t>(latestBat / 100);
+  latestBat = static_cast<int>(map(analogRead(PIN_VBAT), 0, 1023, 0, 6600));
+  mydata.battery = static_cast<uint8_t>min((latestBat / 100),254);
   if (abs(latestBat - previousBat) > 50) {
     Serial.print("VBat: "); Serial.println(latestBat);
   }
